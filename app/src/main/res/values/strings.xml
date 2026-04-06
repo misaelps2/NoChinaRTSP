@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">NoChinaRTSP</string>
+    <string name="enter_rtsp_url">Please enter an RTSP URL</string>
+    <string name="stream_connection_failed">Failed to connect to RTSP stream</string>
 </resources>
