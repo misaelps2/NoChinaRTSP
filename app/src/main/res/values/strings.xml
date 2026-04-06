@@ -1,5 +1,18 @@
 <resources>
     <string name="app_name">NoChinaRTSP</string>
-    <string name="enter_rtsp_url">Please enter an RTSP URL</string>
-    <string name="stream_connection_failed">Failed to connect to RTSP stream</string>
+    <string name="title_camera">Monitor da Câmera</string>
+    <string name="subtitle_camera">Conecte e veja sua câmera em tempo real</string>
+    <string name="hint_rtsp_url">rtsp://usuario:senha@ip:porta/stream</string>
+    <string name="default_rtsp_url"></string>
+
+    <string name="enter_rtsp_url">Informe a URL RTSP para conectar</string>
+    <string name="stream_connection_failed">Falha ao conectar no stream RTSP</string>
+
+    <string name="status_idle">Aguardando conexão</string>
+    <string name="status_connecting">Conectando…</string>
+    <string name="status_playing">Transmitindo ao vivo</string>
+    <string name="status_error">Erro de conexão</string>
+
+    <string name="action_connect">Conectar</string>
+    <string name="action_disconnect">Parar</string>
 </resources>

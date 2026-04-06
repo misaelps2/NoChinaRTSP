@@ -2,23 +2,78 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="#0F172A"
     android:orientation="vertical"
     android:padding="16dp">
 
-    <EditText
-        android:id="@+id/rtspEditText"
+    <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="RTSP URL"
-        android:inputType="textUri"
-        android:text="rtsp://admin:misael12@192.168.100.33:554/onvif2" />
+        android:text="@string/title_camera"
+        android:textColor="#F8FAFC"
+        android:textSize="24sp"
+        android:textStyle="bold" />
 
-    <Button
-        android:id="@+id/openCameraButton"
+    <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:text="OPEN CAMERA" />
+        android:layout_marginTop="4dp"
+        android:text="@string/subtitle_camera"
+        android:textColor="#94A3B8"
+        android:textSize="14sp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:background="#1E293B"
+        android:orientation="vertical"
+        android:padding="12dp">
+
+        <EditText
+            android:id="@+id/rtspEditText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:autofillHints=""
+            android:background="#334155"
+            android:hint="@string/hint_rtsp_url"
+            android:inputType="textUri"
+            android:padding="10dp"
+            android:textColor="#E2E8F0"
+            android:textColorHint="#94A3B8" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <ProgressBar
+                android:id="@+id/loadingIndicator"
+                style="?android:attr/progressBarStyleSmall"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:indeterminate="true"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/statusText"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:text="@string/status_idle"
+                android:textColor="#CBD5E1"
+                android:textSize="14sp" />
+
+            <Button
+                android:id="@+id/openCameraButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/action_connect" />
+        </LinearLayout>
+    </LinearLayout>
 
     <SurfaceView
         android:id="@+id/videoSurface"
@@ -26,6 +81,7 @@
         android:layout_height="0dp"
         android:layout_marginTop="16dp"
         android:layout_weight="1"
+        android:background="#020617"
         android:keepScreenOn="true" />
 
 </LinearLayout>
