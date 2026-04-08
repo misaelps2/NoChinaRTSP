@@ -1,32 +1,28 @@
 package com.example.nochinartsp
 
-import android.net.Uri
 import android.os.Bundle
-import android.view.SurfaceView
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
-import org.videolan.libvlc.IVLCVout
-import org.videolan.libvlc.LibVLC
-import org.videolan.libvlc.Media
-import org.videolan.libvlc.MediaPlayer
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.PlayerView
 
 class MainActivity : ComponentActivity() {
 
-    private var libVlc: LibVLC? = null
-    private var mediaPlayer: MediaPlayer? = null
+    private var player: ExoPlayer? = null
 
-    private lateinit var surfaceView: SurfaceView
+    private lateinit var playerView: PlayerView
     private lateinit var rtspEditText: EditText
     private lateinit var statusText: TextView
     private lateinit var connectButton: Button
     private lateinit var loadingIndicator: ProgressBar
 
-    private var pendingResumePlayback = false
-    private var isStreamStarting = false
+    private var isPlaybackRequested = false
 
     private val prefs by lazy {
         getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
@@ -37,18 +33,17 @@ class MainActivity : ComponentActivity() {
         setContentView(R.layout.activity_main)
 
         rtspEditText = findViewById(R.id.rtspEditText)
-        surfaceView = findViewById(R.id.videoSurface)
+        playerView = findViewById(R.id.videoPlayerView)
         statusText = findViewById(R.id.statusText)
         connectButton = findViewById(R.id.openCameraButton)
         loadingIndicator = findViewById(R.id.loadingIndicator)
 
         val savedRtspUrl = prefs.getString(PREF_RTSP_URL, null)
-        val defaultRtspUrl = getString(R.string.default_rtsp_url)
-        val initialUrl = savedRtspUrl?.takeIf { it.isNotBlank() } ?: defaultRtspUrl
+        val initialUrl = savedRtspUrl?.takeIf { it.isNotBlank() }.orEmpty()
         rtspEditText.setText(initialUrl)
 
         connectButton.setOnClickListener {
-            if (mediaPlayer?.isPlaying == true || isStreamStarting) {
+            if (isPlaybackRequested) {
                 stopRtspStream()
             } else {
                 startRtspStream(autoConnect = false)
@@ -63,52 +58,42 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun ensurePlayerInitialized() {
-        if (libVlc != null && mediaPlayer != null) return
+        if (player != null) return
 
-        val options = arrayListOf(
-            "--network-caching=250",
-            "--rtsp-tcp"
-        )
+        player = ExoPlayer.Builder(this).build().also { exoPlayer ->
+            playerView.player = exoPlayer
+            exoPlayer.repeatMode = Player.REPEAT_MODE_OFF
+            exoPlayer.addListener(
+                object : Player.Listener {
+                    override fun onPlaybackStateChanged(playbackState: Int) {
+                        when (playbackState) {
+                            Player.STATE_BUFFERING -> updateUiState(StreamState.CONNECTING)
+                            Player.STATE_READY -> {
+                                if (exoPlayer.playWhenReady) {
+                                    updateUiState(StreamState.PLAYING)
+                                }
+                            }
 
-        libVlc = LibVLC(this, options)
-        mediaPlayer = MediaPlayer(libVlc)
-
-        val vlcOut: IVLCVout? = mediaPlayer?.vlcVout
-        vlcOut?.setVideoView(surfaceView)
-        vlcOut?.attachViews()
-
-        mediaPlayer?.setEventListener { event ->
-            runOnUiThread {
-                when (event.type) {
-                    MediaPlayer.Event.Opening,
-                    MediaPlayer.Event.Buffering -> {
-                        updateUiState(StreamState.CONNECTING)
+                            Player.STATE_ENDED,
+                            Player.STATE_IDLE -> {
+                                if (!isPlaybackRequested) {
+                                    updateUiState(StreamState.IDLE)
+                                }
+                            }
+                        }
                     }
 
-                    MediaPlayer.Event.Playing -> {
-                        pendingResumePlayback = true
-                        isStreamStarting = false
-                        updateUiState(StreamState.PLAYING)
-                    }
-
-                    MediaPlayer.Event.Stopped,
-                    MediaPlayer.Event.EndReached -> {
-                        isStreamStarting = false
-                        updateUiState(StreamState.IDLE)
-                    }
-
-                    MediaPlayer.Event.EncounteredError -> {
-                        pendingResumePlayback = false
-                        isStreamStarting = false
+                    override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                        isPlaybackRequested = false
                         updateUiState(StreamState.ERROR)
                         Toast.makeText(
-                            this,
+                            this@MainActivity,
                             getString(R.string.stream_connection_failed),
                             Toast.LENGTH_SHORT
                         ).show()
                     }
                 }
-            }
+            )
         }
     }
 
@@ -124,53 +109,49 @@ class MainActivity : ComponentActivity() {
 
         ensurePlayerInitialized()
 
-        isStreamStarting = true
+        prefs.edit().putString(PREF_RTSP_URL, rtspUrl).apply()
+        isPlaybackRequested = true
         updateUiState(StreamState.CONNECTING)
 
-        prefs.edit().putString(PREF_RTSP_URL, rtspUrl).apply()
+        val mediaItem = MediaItem.Builder()
+            .setUri(rtspUrl)
+            .setMimeType("application/x-rtsp")
+            .build()
 
-        val media = Media(libVlc, Uri.parse(rtspUrl)).apply {
-            setHWDecoderEnabled(true, false)
-            addOption(":network-caching=250")
-            addOption(":rtsp-tcp")
+        player?.apply {
+            setMediaItem(mediaItem)
+            playWhenReady = true
+            prepare()
         }
-
-        mediaPlayer?.media = media
-        media.release()
-        mediaPlayer?.play()
-        pendingResumePlayback = true
     }
 
     private fun stopRtspStream() {
-        pendingResumePlayback = false
-        isStreamStarting = false
-        mediaPlayer?.stop()
+        isPlaybackRequested = false
+        player?.apply {
+            playWhenReady = false
+            stop()
+            clearMediaItems()
+        }
         updateUiState(StreamState.IDLE)
     }
 
-    override fun onResume() {
-        super.onResume()
-        if (pendingResumePlayback && mediaPlayer?.isPlaying == false) {
-            mediaPlayer?.play()
+    override fun onStart() {
+        super.onStart()
+        if (isPlaybackRequested) {
+            player?.playWhenReady = true
         }
     }
 
-    override fun onPause() {
-        super.onPause()
-        if (mediaPlayer?.isPlaying == true) {
-            mediaPlayer?.pause()
-            updateUiState(StreamState.IDLE)
-        }
+    override fun onStop() {
+        super.onStop()
+        player?.playWhenReady = false
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        mediaPlayer?.stop()
-        mediaPlayer?.vlcVout?.detachViews()
-        mediaPlayer?.release()
-        libVlc?.release()
-        mediaPlayer = null
-        libVlc = null
+        playerView.player = null
+        player?.release()
+        player = null
     }
 
     private fun updateUiState(state: StreamState) {
